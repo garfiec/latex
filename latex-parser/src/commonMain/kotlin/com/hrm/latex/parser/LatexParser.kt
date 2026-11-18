@@ -118,6 +118,12 @@ internal class ParseSession(
         /** Parser recursion cap; a braced group costs two frames ([parseExpression], [parseFactor]). */
         private const val MAX_RECURSION = 2 * MAX_TREE_DEPTH
 
+        /** Tree levels charged per frame: a frame builds at most a node and its argument group. */
+        private const val LEVELS_PER_FRAME = 2
+
+        /** Levels [deepestLevel] leaves out, such as the document root. */
+        internal const val UNCOUNTED_LEVELS = 8
+
         /** Level by level rather than recursive, so it is safe on any tree the parser built. */
         internal fun treeDepthExceeds(root: LatexNode, limit: Int): Boolean {
             var level = listOf(root)
@@ -229,7 +235,9 @@ internal class ParseSession(
             children,
             sourceRange = SourceRange(0, inputLength)
         )
-        if (treeDepthExceeds(document, MAX_TREE_DEPTH)) return tooDeep()
+        if (deepestLevel + UNCOUNTED_LEVELS > MAX_TREE_DEPTH && treeDepthExceeds(document, MAX_TREE_DEPTH)) {
+            return tooDeep()
+        }
         HLog.d(TAG) { "解析成功，生成 ${children.size} 个节点, 诊断: ${diagnostics.size} 条" }
         return document
     }
@@ -250,12 +258,23 @@ internal class ParseSession(
 
     private var nestingDepth = 0
 
+    /** Tree levels above the current parse position. */
+    private var levels = 0
+
+    /**
+     * An upper bound on the depth of the tree built so far, less [UNCOUNTED_LEVELS]. Typical
+     * formulas stay far below [MAX_TREE_DEPTH], so the exact [treeDepthExceeds] walk is skipped.
+     */
+    internal var deepestLevel = 0
+        private set
+
     override fun parseExpression(): LatexNode? = nested { parseExpressionAtDepth() }
 
     private fun parseExpressionAtDepth(): LatexNode? {
         val startOffset = tokenStream.currentSourceOffset()
         var node = parseFactor() ?: return null
-
+        // This frame's levels cover one script; each further one (`x_1_1…`) wraps the whole node.
+        var wraps = 0
         while (true) {
             val token = tokenStream.peek()
             if (token is LatexToken.Prime) {
@@ -267,6 +286,7 @@ internal class ParseSession(
                 if (node.hasSuperscript()) {
                     reportDoubleSuperscript(token.range)
                 } else {
+                    if (++wraps > 1) deepestLevel++
                     node = LatexNode.Superscript(
                         node,
                         LatexNode.Group(primes),
@@ -283,6 +303,7 @@ internal class ParseSession(
                         reportDoubleSuperscript(token.range)
                         node
                     } else {
+                        if (++wraps > 1) deepestLevel++
                         LatexNode.Superscript(
                             node,
                             exponent,
@@ -292,6 +313,7 @@ internal class ParseSession(
             } else if (token is LatexToken.Subscript) {
                 tokenStream.advance()
                 val index = parseScriptContent()
+                if (++wraps > 1) deepestLevel++
                 node = LatexNode.Subscript(
                     node, index,
                     sourceRange = tokenStream.rangeFrom(startOffset)
@@ -343,16 +365,20 @@ internal class ParseSession(
     /**
      * Every recursive parse passes through [parseExpression] (groups, scripts) or [parseFactor]
      * (commands, unbraced arguments, environments), so counting both bounds the parser's stack.
-     * It does not bound the tree: script chains (`x_1_1…`) deepen it without recursing, which
-     * [treeDepthExceeds] catches.
+     * The tree can still outgrow the recursion (script chains, declarations), so [deepestLevel]
+     * also charges the levels built without recursing.
      */
-    private inline fun <T> nested(parse: () -> T): T {
+    private inline fun nested(parse: () -> LatexNode?): LatexNode? {
         if (nestingDepth >= MAX_RECURSION) throw NestingTooDeep()
+        val outerLevels = levels
         nestingDepth++
+        levels += LEVELS_PER_FRAME
+        if (levels > deepestLevel) deepestLevel = levels
         try {
             return parse()
         } finally {
             nestingDepth--
+            levels = outerLevels
         }
     }
 
@@ -509,6 +535,10 @@ internal class ParseSession(
                 infixNumerator == null
             ) {
                 tokenStream.advance()
+                // The fraction wraps the numerator parsed so far and the rest of the list in up to
+                // three levels; the caller's frame releases them.
+                deepestLevel += 3
+                levels += 3
                 infixNumerator = normalizeStyleDeclarations(children.toList())
                 infixRange = token.range
                 infixCommand = token.name
@@ -682,6 +712,8 @@ internal class ParseSession(
             if (activeDeclarations.isEmpty()) {
                 result.addAll(segment)
             } else {
+                // Each declaration wraps the segment in up to two levels (a style and its group).
+                deepestLevel += 2 * activeDeclarations.size
                 result.add(wrapWithDeclarations(segment.toList(), activeDeclarations))
             }
             segment.clear()
