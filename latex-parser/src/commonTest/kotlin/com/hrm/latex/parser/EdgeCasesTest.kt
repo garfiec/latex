@@ -73,6 +73,12 @@ class EdgeCasesTest {
     }
 
     @Test
+    fun should_accept_deeply_nested_plain_groups() {
+        val result = LatexParser().parseWithDiagnostics("{".repeat(96) + "x" + "}".repeat(96))
+        assertTrue(result.errors.isEmpty(), result.errors.toString())
+    }
+
+    @Test
     fun should_reject_nesting_deeper_than_the_limit_and_keep_the_source() {
         val input = "\\sqrt{".repeat(200) + "x" + "}".repeat(200)
         val result = LatexParser().parseWithDiagnostics(input)

@@ -69,7 +69,7 @@ class RendererRobustnessTest {
     /** Spans the deepest tree the parser returns, where the renderer's stack is fullest. */
     @Test
     fun everyStructureRendersAroundTheDepthLimit() {
-        val failures = sweep((ACCEPTED_DEPTH + 1..64).flatMap { families(it) }) { render(it) }
+        val failures = sweep((ACCEPTED_DEPTH + 1..130).flatMap { families(it) }) { render(it) }
         assertTrue(failures.isEmpty(), report(failures))
     }
 
@@ -162,7 +162,7 @@ class RendererRobustnessTest {
     private fun report(failures: List<Failure>) = "${failures.size} failing inputs:\n" +
         failures.take(25).joinToString("\n") { "[${it.source}] ${it.problem.take(160)} <- ${it.input.take(120)}" }
 
-    private companion object {
+    internal companion object {
         const val ACCEPTED_DEPTH = 32
         const val CANVAS = 64
         val ITERATIONS = System.getProperty("latex.fuzz.iterations")?.toIntOrNull() ?: 3_000

@@ -75,7 +75,7 @@ class StackSafetyTest {
         val ADVERSARIAL_DEPTHS = listOf(300, 1_000, 4_200)
 
         /** Spans the deepest input each structure still accepts, where the parser's stack is fullest. */
-        val AROUND_THE_LIMIT = 33..100
+        val AROUND_THE_LIMIT = 33..140
 
         private fun wrap(prefix: String, suffix: String, depth: Int) = prefix.repeat(depth) + "x" + suffix.repeat(depth)
 

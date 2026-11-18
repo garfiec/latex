@@ -110,9 +110,13 @@ internal class ParseSession(
 
         /**
          * Deepest tree a parse returns, so renderers and visitors that recurse over it fit a
-         * 512 KiB stack (iOS secondary threads). Every structure still nests 32 levels deep.
+         * 512 KiB stack (iOS secondary threads). Every structure still nests 32 levels deep, and
+         * plain groups 126.
          */
-        internal const val MAX_TREE_DEPTH = 96
+        internal const val MAX_TREE_DEPTH = 128
+
+        /** Parser recursion cap; a braced group costs two frames ([parseExpression], [parseFactor]). */
+        private const val MAX_RECURSION = 2 * MAX_TREE_DEPTH
 
         /** Level by level rather than recursive, so it is safe on any tree the parser built. */
         internal fun treeDepthExceeds(root: LatexNode, limit: Int): Boolean {
@@ -343,7 +347,7 @@ internal class ParseSession(
      * [treeDepthExceeds] catches.
      */
     private inline fun <T> nested(parse: () -> T): T {
-        if (nestingDepth >= MAX_TREE_DEPTH) throw NestingTooDeep()
+        if (nestingDepth >= MAX_RECURSION) throw NestingTooDeep()
         nestingDepth++
         try {
             return parse()
