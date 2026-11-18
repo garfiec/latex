@@ -58,7 +58,18 @@ class EdgeCasesTest {
         assertTrue(result.errors.any { it.category == ParseDiagnostic.Category.UNKNOWN_COMMAND })
     }
 
-    
+    @Test
+    fun should_take_verb_whole_as_an_unbraced_argument() {
+        for (verb in listOf("", "ab")) {
+            val fraction = LatexParser().parse("\\frac\\verb|$verb|c").children.single() as LatexNode.Fraction
+            assertEquals(verb, (fraction.numerator as LatexNode.TextMode).text)
+            assertEquals("c", (fraction.denominator as LatexNode.Text).content)
+            val script = LatexParser().parse("x^\\verb|$verb|").children.single() as LatexNode.Superscript
+            assertEquals(verb, (script.exponent as LatexNode.TextMode).text)
+        }
+        LatexParser().parse("\\hat\\verb|")
+    }
+
     private val parser = LatexParser()
     
     // ========== 嵌套结构测试 ==========
