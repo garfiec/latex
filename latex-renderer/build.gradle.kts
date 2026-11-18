@@ -117,6 +117,9 @@ kotlin {
 tasks.withType<Test>().configureEach {
     // The robustness tests read these; declared so that changing one reruns the task.
     inputs.dir(rootProject.file("test-corpus")).withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.files(rootProject.fileTree("build/katex-references")).withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.property("updateFidelityBaseline", providers.environmentVariable("UPDATE_FIDELITY_BASELINE").orElse(""))
+    providers.systemProperty("latex.katex.references").orNull?.let { systemProperty("latex.katex.references", it) }
     providers.systemProperty("latex.fuzz.iterations").orNull?.let { systemProperty("latex.fuzz.iterations", it) }
 }
 

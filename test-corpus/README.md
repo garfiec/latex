@@ -1,7 +1,8 @@
 # Test corpus
 
-Formula lists used by the robustness tests in `latex-parser` and `latex-renderer`
-(`src/jvmTest/.../robustness`). Nothing here ships in a published artifact.
+Formula lists used by the robustness and KaTeX fidelity tests in `latex-parser` and
+`latex-renderer` (`src/jvmTest/.../robustness`, `src/jvmTest/.../fidelity`). Nothing here ships in a
+published artifact.
 
 One formula per line. Blank lines and lines whose first non-whitespace character is
 `#` or `%` are comments.
@@ -28,3 +29,27 @@ is added to it and reports formulas that have left it. Regenerate it with:
 ```bash
 UPDATE_CORPUS_BASELINE=1 ./gradlew :latex-parser:jvmTest --tests "*CorpusParseTest*"
 ```
+
+## KaTeX fidelity
+
+`KatexFidelityTest` (`latex-renderer`) renders every formula in `ratex/` except `parser.txt` and
+`unit-inputs.txt` and scores it against KaTeX 0.16.45's render with RaTeX's `ratex-ink-v2` ink
+metric, ported to Kotlin. The KaTeX renders come from RaTeX at the same commit and are not checked
+in. Without them the test is skipped:
+
+```bash
+test-corpus/fetch-katex-references.sh   # into build/katex-references
+./gradlew :latex-renderer:jvmTest --tests "*KatexFidelityTest*"
+```
+
+The report, our renders, and side-by-side comparisons (KaTeX on the left) of the lowest scores go to
+`latex-renderer/build/reports/katex-fidelity/`. The test fails when a formula scores more than 0.02
+below `katex-fidelity-baseline.tsv`. Regenerate the baseline after an improvement with:
+
+```bash
+UPDATE_FIDELITY_BASELINE=1 ./gradlew :latex-renderer:jvmTest --tests "*KatexFidelityTest*"
+```
+
+Chrome draws glyphs heavier than Compose's Skia text, so a formula laid out exactly like KaTeX still
+scores about 0.8–0.9. The scores rank formulas and catch regressions; they are not comparable with
+RaTeX's published means.
