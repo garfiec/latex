@@ -72,6 +72,10 @@ kotlin {
 }
 
 tasks.withType<Test>().configureEach {
+    // The robustness tests read these; declared so that changing one reruns the task.
+    inputs.dir(rootProject.file("test-corpus")).withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.property("updateCorpusBaseline", providers.environmentVariable("UPDATE_CORPUS_BASELINE").orElse(""))
+    providers.systemProperty("latex.fuzz.iterations").orNull?.let { systemProperty("latex.fuzz.iterations", it) }
     testLogging {
         events("passed", "skipped", "failed")
         showStandardStreams = true

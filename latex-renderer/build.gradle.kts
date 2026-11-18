@@ -114,6 +114,12 @@ kotlin {
     }
 }
 
+tasks.withType<Test>().configureEach {
+    // The robustness tests read these; declared so that changing one reruns the task.
+    inputs.dir(rootProject.file("test-corpus")).withPathSensitivity(PathSensitivity.RELATIVE)
+    providers.systemProperty("latex.fuzz.iterations").orNull?.let { systemProperty("latex.fuzz.iterations", it) }
+}
+
 mavenPublishing {
     publishToMavenCentral(true)
 
