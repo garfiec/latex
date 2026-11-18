@@ -24,9 +24,11 @@
 package com.hrm.latex.parser
 
 import com.hrm.latex.parser.model.LatexNode
+import com.hrm.latex.parser.model.SourceRange
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -68,6 +70,21 @@ class EdgeCasesTest {
             assertEquals(verb, (script.exponent as LatexNode.TextMode).text)
         }
         LatexParser().parse("\\hat\\verb|")
+    }
+
+    @Test
+    fun should_reject_nesting_deeper_than_the_limit_and_keep_the_source() {
+        val input = "\\sqrt{".repeat(200) + "x" + "}".repeat(200)
+        val result = LatexParser().parseWithDiagnostics(input)
+        val error = result.document.children.single() as LatexNode.Error
+        assertEquals(listOf(LatexNode.TextMode(input, sourceRange = SourceRange(0, input.length))), error.recovered)
+        assertTrue(result.errors.isNotEmpty())
+    }
+
+    @Test
+    fun should_reject_a_script_chain_that_deepens_the_tree_without_nesting() {
+        val document = LatexParser().parse("x" + "_1".repeat(200))
+        assertIs<LatexNode.Error>(document.children.single())
     }
 
     private val parser = LatexParser()

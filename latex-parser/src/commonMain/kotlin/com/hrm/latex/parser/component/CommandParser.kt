@@ -25,6 +25,7 @@ package com.hrm.latex.parser.component
 
 import com.hrm.latex.base.log.HLog
 import com.hrm.latex.parser.ParseDiagnostic
+import com.hrm.latex.parser.ParseSession
 import com.hrm.latex.parser.SymbolMap
 import com.hrm.latex.parser.component.handler.*
 import com.hrm.latex.parser.model.LatexNode
@@ -381,7 +382,10 @@ internal class CommandParser(
     }
 
     private fun rejectNestedExpansion(range: SourceRange): Boolean {
-        if (context.scopeDepth < 128) return false
+        // A macro that recurses through groups stops here with a macro error, keeping the rest of
+        // the formula, while each group costs it under three levels of the parse budget. Costlier
+        // recursion ends in the whole-formula depth error instead.
+        if (context.scopeDepth <= ParseSession.MAX_TREE_DEPTH / 3) return false
         macroError(range, "Macro expansion group nesting limit exceeded")
         return true
     }
